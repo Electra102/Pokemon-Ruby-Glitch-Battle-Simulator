@@ -13,28 +13,25 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Source Files\source files">
-      <UniqueIdentifier>{a25bcbbf-209e-47a3-bbdc-69a7f1c611fd}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage.cpp">
-      <Filter>Source Files\source files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files\source files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="move.cpp">
-      <Filter>Source Files\source files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="non_move.cpp">
-      <Filter>Source Files\source files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="random.cpp">
-      <Filter>Source Files\source files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="status_effects.cpp">
-      <Filter>Source Files\source files</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

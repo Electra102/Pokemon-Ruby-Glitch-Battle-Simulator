@@ -76,11 +76,12 @@ typedef struct
 	//uint8_t field_effects_members;
 	PartyMember** team;
 	OnField* onfield;
+	Move* last_move_targeted_with;
 } Side;
 
 typedef struct
 {
-	uint8 turn_weather_spikes; //format is WXXXYYZZ. W = whose turn it is, XXX = weather, YY = spikes set on your side, ZZ = spikes set on opponent's side
+	uint8 turn_weather_spikes; //format is WXXXYYZZ. W = if it is your turn (bit is set if it is), XXX = weather, YY = spikes set on your side, ZZ = spikes set on opponent's side
 	//2 bits for your side's spikes count, 2 bits forthe spikes on the opponent's side, 3 bits for weather
 	//most-significant bit determines whose turn it is- not set if it is your turn, set if it is the opponent's turn
 	//for weather, 000 = No weather, 001 = harsh sun, 010 = rain, 011 = sand, 100 = hail, rest are invalid

@@ -14,6 +14,11 @@ uint8 affectstarget(Side* attackingside, Side* defendingside, Move* move)
 {
 	if (!typeeffectiveness(move->type, defendingside->onfield->types[0]) * typeeffectiveness(move->type, defendingside->onfield->types[1]))
 		return 0;
+	else if (search(defendingside->onfield->temp_status_effects, defendingside->onfield->num_status_effects, TEMP_STATUS_PROTECTION, 1) != -1)
+	{
+		printf("%s was protected from %s\'s move!\n", defendingside->onfield->dataisfor->nickname, attackingside->onfield->dataisfor->nickname);
+		return 0;
+	}
 	else if (typeeffectiveness(move->type, defendingside->onfield->types[0]) * typeeffectiveness(move->type, defendingside->onfield->types[1]) < 16 && defendingside->onfield->ability == ABILITY_WONDER_GUARD && move->effect != EFFECT_FUTURE_SIGHT && move->effect != EFFECT_BEAT_UP && move->index != MOVE_STRUGGLE)
 	{
 		printf("%s\'s move didn't affect %s because of its ability WONDER GUARD and the move was neither super-effective nor did it ignore WONDER GUARD\n", attackingside->onfield->dataisfor->nickname, defendingside->onfield->dataisfor->nickname);
@@ -271,7 +276,7 @@ void prepareandusemove(Field* field, const uint8 yourselection, const uint8 opps
 	Side* attackingside = (Side*)malloc(sizeof(Side));
 	Side* defendingside = (Side*)malloc(sizeof(Side));
 	uint8 attackingslot, defendingslot = 0;
-	if (field->turn_weather_spikes / 128 == 0)
+	if (field->turn_weather_spikes >= 128)
 	{
 		memcpy(attackingside, field->your_side->onfield, sizeof(Side));
 		attackingslot = yourselection;
@@ -306,38 +311,38 @@ void heal(PartyMember* toheal, uint16 healby, uint8 healtype)
 	else if (toheal->max_hp - healby < toheal->hp_remaining)
 		toheal->hp_remaining = toheal->max_hp;
 }
-void secondaryeffect(const uint8 effect, const uint8 effectaccuracy, Side* attackingside, Side* defendingside)
+void secondaryeffect(Side* attackingside, Side* defendingside, Move* move)
 {
 	uint8 randomnum = 0;
-	if (effectaccuracy < 100 && !(effectaccuracy >= 50 && attackingside->onfield->ability == ABILITY_SERENE_GRACE))
+	if (move->effect_accuracy< 100 && !(move->effect_accuracy >= 50 && attackingside->onfield->ability == ABILITY_SERENE_GRACE))
 		randomnum = Random() % 100;
-	else if (randomnum >= (uint16)(effectaccuracy * (1 + (attackingside->onfield->ability == ABILITY_SERENE_GRACE))))
+	else if (randomnum >= (uint16)(move->effect_accuracy * (1 + (attackingside->onfield->ability == ABILITY_SERENE_GRACE))))
 		return;
-	switch (effect)
+	switch (move->effect)
 	{
 		case EFFECT_SLEEP:
-			if (attemptstatus(defendingside->onfield, STATUS_SLEEP) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE)
-				attemptstatus(attackingside->onfield, STATUS_SLEEP);
+			if (attemptstatus(defendingside->onfield, STATUS_SLEEP, move) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE, move)
+				attemptstatus(attackingside->onfield, STATUS_SLEEP, move);
 			break;
 		case EFFECT_POISON_HIT:
-			if(attemptstatus(defendingside->onfield, STATUS_POISON) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE)
-				attemptstatus(attackingside->onfield, STATUS_POISON);
+			if(attemptstatus(defendingside->onfield, STATUS_POISON, move) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE, move)
+				attemptstatus(attackingside->onfield, STATUS_POISON, move);
 			break;
 		case EFFECT_BURN_HIT:
-			if(attemptstatus(defendingside->onfield, STATUS_BURN) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE)
-				attemptstatus(attackingside->onfield, STATUS_BURN);
+			if(attemptstatus(defendingside->onfield, STATUS_BURN, move) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE, move)
+				attemptstatus(attackingside->onfield, STATUS_BURN, move);
 			break;
 		case EFFECT_FREEZE_HIT:
-			if(attemptstatus(defendingside->onfield, STATUS_FREEZE) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE)
-				attemptstatus(attackingside->onfield, STATUS_FREEZE);
+			if(attemptstatus(defendingside->onfield, STATUS_FREEZE, move) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE, move)
+				attemptstatus(attackingside->onfield, STATUS_FREEZE, move);
 			break;
 		case EFFECT_PARALYZE_HIT:
-			if(attemptstatus(defendingside->onfield, STATUS_PARALYSIS) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE)
-				attemptstatus(attackingside->onfield, STATUS_PARALYSIS);
+			if(attemptstatus(defendingside->onfield, STATUS_PARALYSIS, move) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE, move)
+				attemptstatus(attackingside->onfield, STATUS_PARALYSIS, move);
 			break;
 		case EFFECT_TOXIC:
-			if (attemptstatus(defendingside->onfield, STATUS_TOXIC) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE)
-				attemptstatus(attackingside->onfield, STATUS_TOXIC);
+			if (attemptstatus(defendingside->onfield, STATUS_TOXIC, move) && defendingside->onfield->ability == ABILITY_SYNCHRONIZE, move)
+				attemptstatus(attackingside->onfield, STATUS_TOXIC, move);
 			break;
 		case EFFECT_FLINCH_HIT:
 			addeffect(defendingside->onfield, TEMP_STATUS_FLINCH);
@@ -349,24 +354,35 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 {
 	uint16 damage = 0;
 	uint16 recoil = 0;
-	int8 index = -1;
+	uint8 index = search(defendingside->onfield->temp_status_effects, defendingside->onfield->num_status_effects, TEMP_STATUS_PROTECTION_OR_ENDURE_USE, 1);
+	if (move->effect != EFFECT_PROTECT)
+		while (index != -1)
+		{
+			removeeffect(defendingside->onfield, index);
+			index = search(defendingside->onfield->temp_status_effects, defendingside->onfield->num_status_effects, TEMP_STATUS_PROTECTION_OR_ENDURE_USE, 1);
+		}
+	index = -1;
 	if(checkaccuracy(move, attackingside->onfield, defendingside->onfield, (field->turn_weather_spikes / 16) % 128))
 	{
 		switch (move->effect)
 		{
 			case EFFECT_HIT:
+				defendingside->last_move_targeted_with = move;
 				if(affectstarget(attackingside, defendingside, move))
 					damage = calculatedamage(field, attackingside, defendingside, move);
 				break;
 			case EFFECT_SLEEP:
-				secondaryeffect(move->effect, move->effect_accuracy, attackingside, defendingside);
+				defendingside->last_move_targeted_with = move;
+				secondaryeffect(attackingside, defendingside, move);
 				break;
 			case EFFECT_POISON_HIT:
+				defendingside->last_move_targeted_with = move;
 				if (affectstarget(attackingside, defendingside, move))
 					damage = calculatedamage(field, attackingside, defendingside, move);
-				secondaryeffect(move->effect, move->effect_accuracy, attackingside, defendingside);
+				secondaryeffect(attackingside, defendingside, move);
 				break;
 			case EFFECT_ABSORB:
+				defendingside->last_move_targeted_with = move;
 				if (affectstarget(attackingside, defendingside, move))
 				{
 					damage = calculatedamage(field, attackingside, defendingside, move);
@@ -380,34 +396,46 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 				}
 				break;
 			case EFFECT_BURN_HIT:
+				defendingside->last_move_targeted_with = move;
 				if (affectstarget(attackingside, defendingside, move))
 				{
 					damage = calculatedamage(field, attackingside, defendingside, move);
-					secondaryeffect(move->effect, move->effect_accuracy, attackingside, defendingside);
+					secondaryeffect(attackingside, defendingside, move);
 				}
 				break;
 			case EFFECT_FREEZE_HIT:
+				defendingside->last_move_targeted_with = move;
 				if (affectstarget(attackingside, defendingside, move))
 				{
 					damage = calculatedamage(field, attackingside, defendingside, move);
-					secondaryeffect(move->effect, move->effect_accuracy, attackingside, defendingside);
+					secondaryeffect(attackingside, defendingside, move);
 				}
 				break;
 			case EFFECT_PARALYZE_HIT:
+				defendingside->last_move_targeted_with = move;
 				if (affectstarget(attackingside, defendingside, move))
 				{
 					damage = calculatedamage(field, attackingside, defendingside, move);
-					secondaryeffect(move->effect, move->effect_accuracy, attackingside, defendingside);
+					secondaryeffect(attackingside, defendingside, move);
 				}
 				break;
 			case EFFECT_EXPLOSION:
+				defendingside->last_move_targeted_with = move;
 				//uint16 olddef = defendingside->onfield->dataisfor->stats[2];
 				//defendingside->onfield->dataisfor->stats[2] = defendingside->onfield->dataisfor->stats[2] >> 1;
-				if (affectstarget(attackingside, defendingside, move))
-					damage = calculatedamage(field, attackingside, defendingside, move);
+				if (defendingside->onfield->ability == ABILITY_DAMP)
+					printf("%s move was stopped by %s\'s ability DAMP\n", attackingside->onfield->dataisfor->nickname, defendingside->onfield->dataisfor->nickname);
+				else if (attackingside->onfield->ability == ABILITY_DAMP)
+					printf("%s move was stopped by its own ability DAMP\n", attackingside->onfield->dataisfor->nickname);
+				else
+				{
+					if (affectstarget(attackingside, defendingside, move))
+						damage = calculatedamage(field, attackingside, defendingside, move);
+				}
 				//defendingside->onfield->dataisfor->stats[2] = olddef;
 				break;
 			case EFFECT_DREAM_EATER:
+				defendingside->last_move_targeted_with = move;
 				if (affectstarget(attackingside, defendingside, move))
 				{
 					if (defendingside->onfield->dataisfor->lasting_status_effect == STATUS_SLEEP)
@@ -419,7 +447,12 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 						printf("But it failed- %s is not asleep!\n", defendingside->onfield->dataisfor->nickname);
 				}
 				break;
-			case EFFECT_MIRROR_MOVE:
+			case EFFECT_MIRROR_MOVE: //might not work properly
+				defendingside->last_move_targeted_with = move;
+				if (attackingside->last_move_targeted_with->effect == EFFECT_MIRROR_MOVE || attackingside->last_move_targeted_with == NULL)
+					printf("But it failed!\n");
+				else
+					usemove(field, attackingside, defendingside, attackingside->last_move_targeted_with, defendingmove);
 				break;
 			case EFFECT_ATTACK_UP:
 				attemptstatchange(attackingside->onfield->stat_modifiers[0], 1);
@@ -472,23 +505,39 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 					defendingside->onfield->stat_modifiers[i] = 0;
 				}
 				break;
-			case EFFECT_BIDE: //how the fuck do i implement this
+			case EFFECT_BIDE: //how the fuck do i implement this || never mind, figured it out
 				index = search(attackingside->onfield->temp_status_effects, attackingside->onfield->num_status_effects, TEMP_STATUS_BIDE, 1);
 				if (index == -1)
-					damage = attackingside->onfield->stored_damage;
+				{
+					addeffect(attackingside->onfield, TEMP_STATUS_BIDE);
+					addeffect(attackingside->onfield, TEMP_STATUS_BIDE);
+				}
+				else
+					removeeffect(attackingside->onfield, index);
+				index = search(attackingside->onfield->temp_status_effects, attackingside->onfield->num_status_effects, TEMP_STATUS_BIDE, 1);
+				if (index == -1)
+					damage = attackingside->onfield->stored_damage * 2;
 				else
 					attackingside->onfield->temp_status_effects[index] = NO_STATUS;
 				break;
 			case EFFECT_RAMPAGE:
-				index = search(attackingside->onfield->temp_status_effects, attackingside->onfield->num_status_effects, TEMP_STATUS_BIDE, 1);
+				index = search(attackingside->onfield->temp_status_effects, attackingside->onfield->num_status_effects, TEMP_STATUS_RAMPAGE, 1);
 				damage = attackingside->onfield->stored_damage;
-				if (index != -1)
+				if (index == -1)
+				{
+					addeffect(attackingside->onfield, EFFECT_RAMPAGE);
+					if (Random() % 2)
+						addeffect(attackingside->onfield, TEMP_STATUS_RAMPAGE);
+				}
+				removeeffect(attackingside->onfield, index);
+				index = search(attackingside->onfield->temp_status_effects, attackingside->onfield->num_status_effects, TEMP_STATUS_RAMPAGE, 1);
+				if(index != -1)
 					attackingside->onfield->temp_status_effects[index] = NO_STATUS;
 				else
 					addeffect(attackingside->onfield, TEMP_STATUS_CONFUSION);
 				break;
 			case EFFECT_ROAR:
-				makeswitch(defendingside, NULL, RANDOM);
+				//makeswitch(defendingside, NULL, RANDOM);
 				break;
 			case EFFECT_MULTI_HIT:
 				break;
@@ -498,13 +547,14 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 				if(affectstarget(attackingside, defendingside, move))
 				{
 					damage = calculatedamage(field, attackingside, defendingside, move);
-					secondaryeffect(EFFECT_FLINCH_HIT, move->effect_accuracy, attackingside, defendingside);
+					secondaryeffect(attackingside, defendingside, move);
 				}
 				break;
 			case EFFECT_RESTORE_HP:
+
 				break;
 			case EFFECT_TOXIC:
-				secondaryeffect(move->effect, move->effect_accuracy, attackingside, defendingside);
+				secondaryeffect(attackingside, defendingside, move);
 				break;
 			case EFFECT_PAY_DAY:
 				break;
@@ -671,6 +721,10 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 			case EFFECT_THIEF:
 				break;
 			case EFFECT_MEAN_LOOK:
+				if (search(defendingside->onfield->temp_status_effects, defendingside->onfield->num_status_effects, TEMP_STATUS_MEAN_LOOK, 1) == -1)
+					addeffect(defendingside->onfield, TEMP_STATUS_MEAN_LOOK);
+				else
+					printf("But it failed- %s is already affected by MEAN LOOK\n", defendingside->onfield->dataisfor->nickname);
 				break;
 			case EFFECT_NIGHTMARE:
 				break;
@@ -683,8 +737,32 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 				exit(EXIT_FAILURE);
 				break;
 			case EFFECT_PROTECT:
+				//secondaryeffect(EFFECT_PROTECT, move->effect_accuracy, attackingside, defendingside)
+				if (index != -1)
+				{
+					uint8 counter = 0;
+					while (index != -1 && index + 1 < attackingside->onfield->num_status_effects)
+					{
+						counter++;
+						index = search(attackingside->onfield->temp_status_effects, attackingside->onfield->num_status_effects, TEMP_STATUS_PROTECTION_OR_ENDURE_USE, index + 1);
+					}
+				}
 				break;
 			case EFFECT_SPIKES:
+				if (field->turn_weather_spikes >= 128)
+				{
+					if ((field->turn_weather_spikes & 12) == 12)
+						printf("But it failed- there are already three layers of spikes!\n");
+					else
+						field->turn_weather_spikes += 4;
+				}
+				else
+				{
+					if ((field->turn_weather_spikes & 3) == 3)
+						printf("But it failed- there are already three layers of spikes!\n");
+					else
+						field->turn_weather_spikes++;
+				}
 				break;
 			case EFFECT_FORESIGHT:
 				break;
@@ -871,6 +949,11 @@ void usemove(Field* field, Side* attackingside, Side* defendingside, Move* move,
 			case EFFECT_REVENGE:
 				break;
 			case EFFECT_BRICK_BREAK:
+				if(search(defendingside->onfield->temp_status_effects, defendingside->onfield->num_status_effects, TEMP_STATUS_PROTECTION, 1))
+					defendingside->fieldeffects = defendingside->fieldeffects & 3;
+				if (affectstarget(attackingside, defendingside, move))
+					damage = calculatedamage(field, attackingside, defendingside, move);
+
 				break;
 			case EFFECT_YAWN:
 				break;

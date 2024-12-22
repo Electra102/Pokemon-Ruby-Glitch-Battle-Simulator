@@ -48,6 +48,8 @@
 #define TEMP_STATUS_BOUNCE 44
 #define TEMP_STATUS_SWITCHING 45
 #define TEMP_STATUS_DAMAGED_THIS_TURN 46
+#define TEMP_STATUS_PROTECTION_OR_ENDURE_USE 47
+#define TEMP_STATUS_MEAN_LOOK 48
 
 //status effects that last after you switch
 #define STATUS_PARALYSIS 2

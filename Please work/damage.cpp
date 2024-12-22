@@ -49,7 +49,7 @@ uint8 abilitystatboost(OnField* onfield, const uint8 statid)
             break;
     }
 }
-uint8 itemstatboost(OnField* onfield, const uint8 statid)
+uint8 statitemboost(OnField* onfield, const uint8 statid)
 {
     switch (onfield->dataisfor->held_item->effect)
     {
@@ -633,10 +633,18 @@ uint16 calculatedamage(Field* field, Side* attackingside, Side* defendingside, M
     else
         return 0;
 
-    uint16 damage = ((2 * (attackingside->onfield->dataisfor->abilityslot_level & 127) / 5) + 2) * move->base_power / 10 * typeitemboost(type, attackingside->onfield->dataisfor->held_item->effect) / 10 * typeabilityboost(attackingside->onfield, type) / 10;
-    //behold, the longest line of code i have in this project so far
-    //accounts for: stat modifiers, stat boosts from ability and items, attacking and defending stats, dividing by 50 at the end, and explosion halving the target's defense
-    damage = (damage * (attackingside->onfield->dataisfor->stats[(2 * category) + 1] * findmodifier(FIRST, attackingside->onfield->stat_modifiers[2 * category], NORMAL_STATS) / findmodifier(SECOND, attackingside->onfield->stat_modifiers[2 * category], NORMAL_STATS) * abilitystatboost(attackingside->onfield, (2 * category) + 1) * statitemboost(attackingside->onfield, (2 * category) + 1) / 100 / (defendingside->onfield->dataisfor->stats[(2 * category) + 2] * findmodifier(FIRST, defendingside->onfield->stat_modifiers[(2 * category) + 1], NORMAL_STATS) / findmodifier(SECOND, defendingside->onfield->stat_modifiers[(2 * category) + 1], NORMAL_STATS) * abilitystatboost(attackingside->onfield, (2 * category) + 1) * statitemboost(defendingside->onfield, (2 * category) + 1) / 100 / (2 * (move->effect == EFFECT_EXPLOSION))))) / 50;
+    uint16 damage = 0;
+    if (defendingside->onfield->dataisfor->stats[(2 * category) + 2] != 0)
+    {
+        damage = ((2 * (attackingside->onfield->dataisfor->abilityslot_level & 127) / 5) + 2) * move->base_power / 10 * typeitemboost(type, attackingside->onfield->dataisfor->held_item->effect) / 10 * typeabilityboost(attackingside->onfield, type) / 10;
+        //behold, what was at one point (and still might be) the longest line of code i have in this project so far
+        //accounts for: stat modifiers, stat boosts from ability and items, attacking and defending stats, dividing by 50 at the end, and explosion halving the target's defense
+        damage = (damage * (attackingside->onfield->dataisfor->stats[(2 * category) + 1] * findmodifier(FIRST, attackingside->onfield->stat_modifiers[2 * category], NORMAL_STATS) / findmodifier(SECOND, attackingside->onfield->stat_modifiers[2 * category], NORMAL_STATS) * abilitystatboost(attackingside->onfield, (2 * category) + 1) * statitemboost(attackingside->onfield, (2 * category) + 1) / 100 / (1 + ((type == TYPE_FIRE || type == TYPE_ICE) && defendingside->onfield->ability == ABILITY_THICK_FAT))));
+        uint16 defendingstat = defendingside->onfield->dataisfor->stats[(2 * category) + 2] * findmodifier(FIRST, defendingside->onfield->stat_modifiers[(2 * category) + 1], NORMAL_STATS) / findmodifier(SECOND, defendingside->onfield->stat_modifiers[(2 * category) + 1], NORMAL_STATS);
+        if (defendingstat > 1) //would see if it is greater than zero, but there would be no change anyways if defendingstat == 1, so it will instead check if defendingstat > 1
+            damage = damage / defendingstat;
+        //defendingside->onfield->dataisfor->stats[(2 * category) + 2] * findmodifier(FIRST, defendingside->onfield->stat_modifiers[(2 * category) + 1], NORMAL_STATS) / findmodifier(SECOND, defendingside->onfield->stat_modifiers[(2 * category) + 1], NORMAL_STATS) * abilitystatboost(attackingside->onfield, (2 * category) + 1) * statitemboost(defendingside->onfield, (2 * category) + 1) / 100 / (2 * (move->effect == EFFECT_EXPLOSION))))) / 50;
+    }
     if (category == PHYSICAL && attackingside->onfield->dataisfor->lasting_status_effect == STATUS_BURN && move->effect != EFFECT_FACADE && attackingside->onfield->ability != ABILITY_GUTS)
         damage /= 2;
     //need to find if the attacker crits now, because crits ignore screens
@@ -650,8 +658,8 @@ uint16 calculatedamage(Field* field, Side* attackingside, Side* defendingside, M
         critrate++;
     if (move->effect != EFFECT_FUTURE_SIGHT && move->effect != EFFECT_SPIT_UP && defendingside->onfield->ability != ABILITY_SHELL_ARMOR && defendingside->onfield->ability != ABILITY_BATTLE_ARMOR)
         critresult *= (1 + (0 == Random() % (16 - ((8 * (critrate >= 1)) + (4 * (critrate >= 2)) + (critrate >= 3) + (critrate >= 4)))));
-    //need to confirm brick break deals damage after removing the screen
-    if (critresult == 1 && !(move->effect == EFFECT_BRICK_BREAK) && (((defendingside->fieldeffects & 224) != 0 && category == SPECIAL) || ((defendingside->fieldeffects & 28) != 0 && category == PHYSICAL)))
+    //may need to confirm brick break deals damage after removing the screen, in case Bulbapedia is inaccurate
+    if (critresult == 1 && (((defendingside->fieldeffects & 224) != 0 && category == SPECIAL) || ((defendingside->fieldeffects & 28) != 0 && category == PHYSICAL)))
         damage /= 2;
     if (weatherpasses)
     {
@@ -679,7 +687,7 @@ uint16 calculatedamage(Field* field, Side* attackingside, Side* defendingside, M
     if (defendingside->onfield->dataisfor->lasting_status_effect == STATUS_PARALYSIS && move->effect == EFFECT_SMELLINGSALT)
     {
         damage *= 2;
-        defendingside->onfield->dataisfor->lasting_status_effect == NO_STATUS;
+        defendingside->onfield->dataisfor->lasting_status_effect = NO_STATUS;
     }
     if (search(defendingside->onfield->temp_status_effects, defendingside->onfield->num_status_effects, TEMP_STATUS_SWITCHING, 1) != -1 && move->effect == EFFECT_PURSUIT)
         damage *= 2;
